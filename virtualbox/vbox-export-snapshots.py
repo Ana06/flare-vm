@@ -63,18 +63,27 @@ if __name__ == "__main__":
             session.unlock_machine()
             print(f"Restored '{snapshot_name}' and changed its adapter(s) to host-only")
 
-            # Export .ova
-            exported_vm_name = f"{EXPORTED_VM_NAME}.{date}{extension}"
+            # Prepare export directory
             export_directory = os.path.expanduser(f"~/{EXPORT_DIR_NAME}")
             os.makedirs(export_directory, exist_ok=True)
+            exported_vm_name = f"{EXPORTED_VM_NAME}.{date}{extension}"
             filename = os.path.join(export_directory, f"{exported_vm_name}.ova")
+            filename_temp = os.path.join(export_directory, f"{exported_vm_name}.TEMP.ova")
+
+            # Export .ova
             appliance = vbox.create_appliance()
             sys_description = vm.export_to(appliance, exported_vm_name)
             sys_description.set_final_value(DescType.name, exported_vm_name)
             sys_description.set_final_value(DescType.description, description)
-            progress = appliance.write("ovf-1.0", [ExportOps.create_manifest], filename)
+            progress = appliance.write("ovf-1.0", [ExportOps.create_manifest], filename_temp)
             print(f"Exporting {filename} (this will take some time, go for an 🍦!)")
             progress.wait_for_completion(-1)
+
+            # Modify OVA file to include the name of the Host-Only adapter to prevent the error:
+            # Nonexistent host networking interface, name '' (VERR_INTERNAL_ERROR)
+            with open(filename_temp, "r") as ova_temp, open(filename, "w") as ova:
+                for line in ova_temp:
+                    ova.write(line.replace('<HostOnlyInterface/>', '<HostOnlyInterface name="vboxnet0"/>'))
 
             # Generate file with SHA256
             with open(f"{filename}.sha256", "w") as f:
