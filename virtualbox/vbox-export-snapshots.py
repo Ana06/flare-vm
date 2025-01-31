@@ -19,6 +19,10 @@ Generate a file with the SHA256 of the exported .ova.
 The exported VM names start with "FLARE-VM.{date}".
 """
 
+import argparse
+import sys
+import textwrap
+import json
 import hashlib
 import os
 import re
@@ -26,37 +30,6 @@ from datetime import datetime
 
 from vboxcommon import *
 
-# Base name of the exported VMs
-EXPORTED_VM_NAME = "FLARE-VM"
-
-# Name of the VM to export the snapshots from
-VM_NAME = f"{EXPORTED_VM_NAME}.testing"
-
-# Name of the directory in HOME to export the VMs
-# The directory is created if it does not exist
-EXPORT_DIR_NAME = "EXPORTED VMS"
-
-# Array with snapshots to export as .ova where every entry is a tuple with the info:
-# - Snapshot name
-# - VM name extension (exported VM name: "FLARE-VM.<date>.<extension")
-# - Exported VM description
-SNAPSHOTS = [
-    (
-        "FLARE-VM",
-        ".dynamic",
-        "Windows 10 VM with FLARE-VM default configuration installed",
-    ),
-    (
-        "FLARE-VM.full",
-        ".full.dynamic",
-        "Windows 10 VM with FLARE-VM default configuration + the packages 'visualstudio.vm' and 'pdbs.pdbresym.vm' installed",
-    ),
-    (
-        "FLARE-VM.EDU",
-        ".EDU",
-        "Windows 10 VM with FLARE-VM default configuration installed + FLARE-EDU teaching materials",
-    ),
-]
 
 # Duration of the power cycle: the seconds we wait between starting the VM and powering it off.
 # It should be long enough for the internet_detector to detect the network change.
@@ -135,22 +108,22 @@ def restore_snapshot(vm_uuid, snapshot_name):
     print(f'VM {vm_uuid} ✨ restored snapshot "{snapshot_name}"')
 
 
-if __name__ == "__main__":
+def export_snapshots(vm_name, exported_vm_name, snapshots, export_dir_name):
     date = datetime.today().strftime("%Y%m%d")
 
-    vm_uuid = get_vm_uuid(VM_NAME)
+    vm_uuid = get_vm_uuid(vm_name)
     if not vm_uuid:
-        print(f'ERROR: "{VM_NAME}" not found')
+        print(f'ERROR: "{vm_name}" not found')
         exit()
 
-    print(f'\nExporting snapshots from "{VM_NAME}" {vm_uuid}')
+    print(f'\nExporting snapshots from "{vm_name}" {vm_uuid}')
 
     # Create export directory
-    export_directory = os.path.expanduser(f"~/{EXPORT_DIR_NAME}")
+    export_directory = os.path.expanduser(f"~/{export_dir_name}")
     os.makedirs(export_directory, exist_ok=True)
     print(f'Export directory: "{export_directory}"\n')
 
-    for snapshot_name, extension, description in SNAPSHOTS:
+    for snapshot_name, extension, description in snapshots:
         try:
             restore_snapshot(vm_uuid, snapshot_name)
 
@@ -163,7 +136,7 @@ if __name__ == "__main__":
             time.sleep(POWER_CYCLE_TIME)
             ensure_vm_shutdown(vm_uuid)
 
-            exported_vm_name = f"{EXPORTED_VM_NAME}.{date}{extension}"
+            exported_vm_name = f"{exported_vm_name}.{date}{extension}"
             exported_ova_filepath = os.path.join(export_directory, f"{exported_vm_name}.ova")
 
             # Provide better error if OVA already exists (for example if the script is called twice)
@@ -195,3 +168,49 @@ if __name__ == "__main__":
             print(f'VM {vm_uuid} ❌ ERROR exporting "{snapshot_name}":{e}\n')
 
     print("Done! 🙃")
+
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+
+    epilog = textwrap.dedent(
+        """
+        Example usage:
+          # Export snapshots using the information in the "configs/export_win10_flare-vm.json" config file
+          ./vbox-export-snapshots.py configs/export_win10_flare-vm.json
+        """
+    )
+    parser = argparse.ArgumentParser(
+        description="Export one or more snapshots in the same VirtualBox VM as .ova, changing the network to a single Host-Only interface. Generate a file with the SHA256 of the exported OVA(s).",
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "config_path",
+        help=textwrap.dedent(
+            """
+           path of the JSON configuration file.
+             "VM_NAME" is the name of the VM to export snapshots from.
+             "EXPORTED_VM_NAME" is the name of the exported VMs.
+             "SNAPSHOTS" is a list of lists with information of the snapshots to export: ["SNAPSHOT_NAME", "EXPORTED_VM_EXTENSION", "DESCRIPTION"]. Example: ["FLARE-VM", ".dynamic", "Windows 10 VM with FLARE-VM default configuration"]
+           """
+        ),
+    )
+    parser.add_argument(
+        "--export_dir_name",
+        help="name of the directory in HOME to export the VMs. The directory is created if it does not exist.",
+        default="EXPORTED VMS",
+    )
+    args = parser.parse_args(args=argv)
+    print(args)
+
+    with open(args.config_path) as f:
+        config = json.load(f)
+
+    print(config)
+    export_snapshots(config["VM_NAME"], config["EXPORTED_VM_NAME"], config["SNAPSHOTS"], args.export_dir_name)
+
+
+if __name__ == "__main__":
+    main()
