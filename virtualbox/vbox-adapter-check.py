@@ -20,6 +20,7 @@ import sys
 import textwrap
 
 import gi
+
 from vboxcommon import ensure_hostonlyif_exists, get_vm_state, run_vboxmanage
 
 gi.require_version("Notify", "0.7")
