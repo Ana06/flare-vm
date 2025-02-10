@@ -41,6 +41,19 @@ def cmd_to_str(cmd):
     return " ".join(format_arg(arg) for arg in cmd)
 
 
+def __run_vboxmanage(cmd, real_time=False):
+    """Run a VBoxManage command and return the output.
+
+    Args:
+        cmd: list of string arguments to pass to VBoxManage
+        real_time: Boolean that determines if displaying the output in realtime or returning it.
+    """
+    if real_time:
+        return subprocess.run(cmd, stderr=sys.stderr, stdout=sys.stdout)
+    else:
+        return subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+
 def run_vboxmanage(cmd, real_time=False):
     """Run a VBoxManage command and return the output.
 
@@ -49,12 +62,24 @@ def run_vboxmanage(cmd, real_time=False):
         real_time: Boolean that determines if displaying the output in realtime or returning it.
     """
     cmd = ["VBoxManage"] + cmd
-    if real_time:
-        result = subprocess.run(cmd, stderr=sys.stderr, stdout=sys.stdout)
-    else:
-        result = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    result = __run_vboxmanage(cmd, real_time)
 
     if result.returncode:
+        # Check if we are affect by the following VERR_NO_LOW_MEMORY bug: https://www.virtualbox.org/ticket/22185
+        if result.stdout and "VERR_NO_LOW_MEMORY" in result.stdout:
+            # This command requires the script to be run as sudo
+            free_mem_cmd = "echo 3 | sudo tee /proc/sys/vm/drop_caches"
+            free_mem_result = subprocess.run(free_mem_cmd)
+
+            if free_mem_result.returncode:
+                error = "VirtualBox VERR_NO_LOW_MEMORY error (likely https://www.virtualbox.org/ticket/22185). Execute as sudo: '{free_mem_cmd}'"
+                raise RuntimeError(error)
+
+            print("🩹 VirtualBox VERR_NO_LOW_MEMORY error fixed!")
+
+            # Re-try command after fixing the VERR_NO_LOW_MEMORY error
+            result = __run_vboxmanage(cmd, real_time)
+
         error = f"Command '{cmd_to_str(cmd)}' failed"
         # Use only the first "VBoxManage: error:" line to prevent using the long
         # VBoxManage help message or noisy information like the details and context.
