@@ -73,7 +73,7 @@ POWERSHELL_PATH = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 CMD_PATH = r"C:\Windows\System32\cmd.exe"
 
 # Cleanup command to be executed in cmd to delete the PowerShel logs
-CMD_CLEANUP_CMD = r'/c rmdir /s /q "%UserProfile%\Desktop\PS_Transcripts"'
+CMD_CLEANUP_CMD = r'/c rmdir /s /q %UserProfile%\Desktop\PS_Transcripts'
 
 
 def control_guest(vm_uuid, args, real_time=False):
@@ -98,7 +98,7 @@ def run_command(vm_uuid, cmd, executable="PS"):
 
     print(f"VM {vm_uuid} 🚧 {executable}: {cmd}")
     try:
-        control_guest(vm_uuid, ["run", exe_path, "--unquoted-args", cmd], True)
+        control_guest(vm_uuid, ["run", exe_path, cmd], True)
     except RuntimeError:
         raise RuntimeError("VM {vm_uuid} ❌ Command execution failed!")
 
