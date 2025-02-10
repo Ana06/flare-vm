@@ -15,6 +15,7 @@
 
 import argparse
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -174,6 +175,21 @@ def install_flare_vm(vm_uuid, wip_snapshot_name, custom_config):
         print(f"  ❌ Reading {FAILED_PACKAGES_HOST} failed")
 
 
+def rename_old_snapshot(vm_uuid, snapshot_name):
+    """Append 'OLD' to the name of the snapshots with the given name"""
+    # Example of 'VBoxManage snapshot VM_NAME list --machinereadable' output:
+    # SnapshotName="ROOT"
+    # SnapshotUUID="86b38fc9-9d68-4e4b-a033-4075002ab570"
+    # SnapshotName-1="Snapshot 1"
+    # SnapshotUUID-1="e383e702-fee3-4e0b-b1e0-f3b869dbcaea"
+    snapshots_info = run_vboxmanage(["snapshot", vm_uuid, "list", "--machinereadable"])
+
+    # Find how many snapshots have the given name and edit a snapshot with that name as many times
+    snapshots = re.findall(rf'^SnapshotName(-\d+)*="{snapshot_name}"\n', snapshots_info, flags=re.M)
+    for _ in range(len(snapshots)):
+        run_vboxmanage(["snapshot", vm_uuid, "edit", snapshot_name, f"--name='{snapshot_name} OLD'"])
+
+
 def build_vm(vm_name, exported_vm_name, snapshots, date, custom_config):
     """"""
     vm_uuid = get_vm_uuid(vm_name)
@@ -191,7 +207,9 @@ def build_vm(vm_name, exported_vm_name, snapshots, date, custom_config):
 
     install_flare_vm(vm_uuid, exported_vm_name, custom_config)
 
+    # Take a base snapshot, ensuring there is no snapshot with the same name
     base_snapshot_name = f"{exported_vm_name}.{date}.base"
+    rename_old_snapshot(vm_uuid, base_snapshot_name)
     take_snapshot(vm_uuid, base_snapshot_name)
 
     for snapshot in snapshots:
@@ -224,10 +242,13 @@ def build_vm(vm_name, exported_vm_name, snapshots, date, custom_config):
         # Perform clean up: delete PowerShells logs (using cmd.exe)
         run_command(vm_uuid, CMD_CLEANUP_CMD, "CMD")
 
-        # Take snapshot and export it with the configured description
+        # Take snapshot ensuring there is no snapshot with the same name and turning the VM off
         extension = snapshot.get("extension", "")
         snapshot_name = f"{exported_vm_name}.{date}{extension}"
+        rename_old_snapshot(vm_uuid, snapshot_name)
         take_snapshot(vm_uuid, snapshot_name, True)
+
+        # Export the snapshot with the configured description
         export_vm(vm_uuid, snapshot_name, snapshot.get("description", ""))
 
 
