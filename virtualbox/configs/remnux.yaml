@@ -1,0 +1,18 @@
+VM_NAME: REMnux.testing
+EXPORTED_VM_NAME: REMnux
+SNAPSHOTS:
+- extension: ".dynamic"
+  description: "REMnux (based on Ubuntu) with improved configuration"
+  cmd: |
+    # Upgrade package and install useful libraries
+    remnux upgrade; sudo apt-get --assume-yes install libwrap0-dev gdb-multiarch qemu gcc-multilib;
+    pip install -U pip; pip install rpyc flare-capa lznt1;
+    /usr/bin/python3.9 -m pip install -U pip; /usr/bin/python3.9 -m pip install rpyc flare-capa lznt1
+    # Install IDA
+    chmod +x ida-pro_91_x64linux.run & ./ida-pro_*.run --mode unattended
+
+    # Install dash to panel extension
+    gnome-extensions install dash-to-panel*.shell-extension.zip
+    # logout and in
+    gnome-extensions enable dash-to-panel@jderose9.github.com
+
