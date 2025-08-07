@@ -52,3 +52,13 @@ CMDS:
     # Ensure files are written to persistent storage as the script shut down the VM abruptly
     sync
 
+  - |
+    # Cleanup
+    lsblk
+    sudo systemctl stop systemd-journal* && sudo swapoff -a && sudo mount -n -o remount,ro -t ext2 /dev/sda5 / && zerofree -v /dev/sda5
+    cd /home/remnux/Desktop
+    lsblk
+
+    # Ensure files are written to persistent storage as the script shut down the VM abruptly
+    sync
+

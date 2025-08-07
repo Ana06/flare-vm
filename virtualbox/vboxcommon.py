@@ -184,6 +184,19 @@ def sha256_file(filepath):
         return hashlib.file_digest(f, "sha256").hexdigest()
 
 
+def compact_vdi(vm_uuid):
+    """Compact the VM virtual disk file."""
+    # Example of `VBoxManage showvminfo <VM_UUID> --machinereadable` relevant output:
+    # "SATA-0-0"="/home/anamg/VirtualBox VMs/FLARE-VM.Win11.testing/FLARE-VM.Win11.testing-disk001.vdi"
+    vm_info = run_vboxmanage(["showvminfo", vm_uuid, "--machinereadable"])
+
+    match = re.search(r'^"SATA-0-0"="(?P<vdi>\S+)"', vm_info, flags=re.M)
+    if not match:
+        raise Exception(f"Unable to find virtual disk file (.vdi) of VM {vm_uuid}")
+
+    run_vboxmanage(["modifyhd", match["vdi"], "--compact"])
+
+
 def export_vm(vm_uuid, exported_vm_name, description="", export_dir_name=EXPORT_DIR_NAME):
     """Export VM as OVA and generate a file with the SHA256 of the exported OVA."""
     # Create export directory
