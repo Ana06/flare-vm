@@ -25,10 +25,11 @@ jobs:
         run: |
           cd virtualbox
 
-          pyinstaller --onefile --log-level DEBUG --exclude-module libcrypto --exclude-module libssl vbox-adapter-check.py
-          pyinstaller --onefile --log-level DEBUG --exclude-module libcrypto --exclude-module libssl vbox-clean-snapshots.py
+          pyinstaller --log-level DEBUG --exclude-module libcrypto --exclude-module libssl vbox-adapter-check.py
+          pyinstaller --log-level DEBUG --exclude-module libcrypto --exclude-module libssl vbox-clean-snapshots.py
 
           ls dist
+          ls -la dist/vbox-adapter-check
       # Only test vbox-clean-snapshots as vbox-adapter-check uses Notify and it fails in GH actions
       - name: Check  vbox-clean-snapshots runs correctly
         run: virtualbox/dist/vbox-clean-snapshots --help
