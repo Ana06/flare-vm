@@ -65,6 +65,8 @@ def run_vboxmanage(cmd, real_time=False):
     cmd = ["VBoxManage"] + cmd
     result = __run_vboxmanage(cmd, real_time)
 
+    print("TEST")
+    print(result.stdout)
     if result.returncode:
         # Check if we are affect by the following VERR_NO_LOW_MEMORY bug: https://www.virtualbox.org/ticket/22185
         # and re-run the command every minute until the VERR_NO_LOW_MEMORY error is resolved
